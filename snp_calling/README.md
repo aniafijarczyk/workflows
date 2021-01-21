@@ -265,7 +265,7 @@ gatk SelectVariants -R ref.fasta \
 
 ##### 9. SNP calling with Freebayes (v1.3.1-17-gaa2ace8)
 
-If needed adjusting RG fields in bam files using picard
+Readjustment of RG fields in bam files using picard, if needed
 ```
 picard AddOrReplaceReadGroups I=bams/${sample}_rmdup.bam O=bams/${sample}_RG.bam RGID=${sampleID} RGLB=${sampleID} RGPL=ILLUMINA RGPU=${flowcell.lane}.${sampleID} RGSM=${sampleID}
 ```
@@ -277,7 +277,7 @@ freebayes -f ref.fasta -q 20 --use-best-n-alleles 4 --limit-coverage 20000 -F 0.
 ```
 Splitting variants (problematic in multiallelic variants)
 ```
-$DIR/vcflib/bin/vcfallelicprimitives -kg snps_freebayes.vcf >freebayes_calls.vcf
+$DIR/vcflib/bin/vcfallelicprimitives -kg freebayes.vcf >freebayes_calls.vcf
 ```
 Filtering variants
 ```
