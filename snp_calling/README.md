@@ -30,17 +30,17 @@ for sample in AT146 Yu16
   do
   left=reads/${sample}*_R1.fastq.gz
   right=reads/${sample}*_R2.fastq.gz
-  java -jar -Xmx4g /prg/trimmomatic/0.36/trimmomatic-0.36.jar PE -phred33
-  reads/${sample}_R1.fastq.gz reads/${sample}_R2.fastq.gz 
-  trimmed/${sample}_outR1P.fastq trimmed/${sample}_outR1U.fastq trimmed/${sample}_outR2P.fastq trimmed/${sample}_outR2U.fastq 
+  java -jar -Xmx4g /prg/trimmomatic/0.36/trimmomatic-0.36.jar PE -phred33 \
+  reads/${sample}_R1.fastq.gz reads/${sample}_R2.fastq.gz \
+  trimmed/${sample}_outR1P.fastq trimmed/${sample}_outR1U.fastq trimmed/${sample}_outR2P.fastq trimmed/${sample}_outR2U.fastq \
   ILLUMINACLIP:TruSeq3-PE-adapters.fa:6:20:10 MINLEN:21
   done
 ```
 
 With parallel
 ```
-parallel -j 10 java -jar -Xmx4g /prg/trimmomatic/0.33/trimmomatic-0.33.jar PE -phred33 reads/{}_R1.fastq.gz reads/{}_R2.fastq.gz 
-trimmed/{}_outR1P.fastq trimmed/{}_outR1U.fastq trimmed/{}_outR2P.fastq trimmed/{}_outR2U.fastq 
+parallel -j 10 java -jar -Xmx4g /prg/trimmomatic/0.33/trimmomatic-0.33.jar PE -phred33 reads/{}_R1.fastq.gz reads/{}_R2.fastq.gz \
+trimmed/{}_outR1P.fastq trimmed/{}_outR1U.fastq trimmed/{}_outR2P.fastq trimmed/{}_outR2U.fastq \
 ILLUMINACLIP:TruSeq3-PE-adapters.fa:6:20:10 MINLEN:21 ::: $(ls -1 reads/*_R1.fastq.gz | sed 's/_R1.fastq.gz//' | cut -d'/' -f2)
 ```
 
@@ -51,6 +51,9 @@ Location of adapter sequences: /prg/trimmomatic/0.36/adapters/
 
 Mapping & sorting, indexing and calculating stats with 2 threads (bwa/0.7.17, samtools/1.8)
 ```
+bwa index reference.fasta
+samtools faidx reference.fasta
+
 for sample in AT146 Yu16
   do
   if [ ! -f bams/"${sample}_SpA_sorted.bam" ]
@@ -66,7 +69,7 @@ for sample in AT146 Yu16
 
 ##### 4. Checking mapping quality
 
-Mapping coverage from bam index files with goleft
+Mapping coverage from bam index files with [goleft](https://github.com/brentp/goleft)
 ```
 goleft indexcov --directory stats_indexcov/ bams/*.bam
 ```
@@ -100,4 +103,20 @@ for sample in bams/*.bam
 ##### 7. SNP calling with samtools/bcftools
 
 Realigning reads around indels
+```
+for bam in bams/*.bams
+  do
+  nameis=$(echo $bam | sed 's/.bam//g')
+  echo $nameis
+  samtools calmd -bAr -@2 ${bam} reference.fasta > ${nameis}_calmd.bam
+  done
+```
 
+SNP calling with [bcftools mpileup](http://samtools.github.io/bcftools/bcftools.html#mpileup) and [bcftools call](http://samtools.github.io/bcftools/bcftools.html#call)
+[I think bcftools mpileup doesn't work with bcftools call -m (using -c instead)]
+```
+ls bams/*_calmd.bam > bam_list
+bcftools mpileup -C50 -f reference.fasta -q4 -a FORMAT/AD,FORMAT/ADR,FORMAT/ADF,FORMAT/DP -Ou -b bams_list | \
+bcftools call -cv -f gq -Oz -o snp_bcftools.vcf.gz -
+tabix -p vcf snp_bcftools.vcf.gz
+```
