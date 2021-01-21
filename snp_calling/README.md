@@ -122,7 +122,7 @@ bcftools call -cv -f gq -Oz -o snp_bcftools.vcf.gz -
 tabix -p vcf snp_bcftools.vcf.gz
 ```
 
-Some filtering with [vcf-annotate](https://manpages.debian.org/testing/vcftools/vcf-annotate.1.en.html)
+Annotation of poor SNPs with [vcf-annotate](https://manpages.debian.org/testing/vcftools/vcf-annotate.1.en.html)
 
 ```
 zcat snp_bcftools.vcf.gz | grep -v "^#" | awk '{print $1"\t"$2"\t"$2"\tsnp_"NR}' > snp_bcftools_annotations
@@ -149,12 +149,92 @@ Q = Qual INT Minimum value of the QUAL field [10]
 W = GapWin INT Window size for filtering adjacent gaps [10]
 w = SnpGap INT SNP within INT bp around a gap to be filtered [10]
 ```
-Example filtering: only SNPs, with coverage min 10 per sample, and variants which pass above filters
+Filtering with [bcftools view](http://samtools.github.io/bcftools/bcftools.html#view) - only SNPs, with coverage min 10 per sample, and variants which pass above filters
 ```
 bcftools view -i 'TYPE=="snp" & (DP4[0]+DP4[1]+DP4[2]+DP4[3])>=10 & FILTER=="PASS"' \
 snp_bcftools_annotated.vcf.gz -Oz -o snp_bcftools.f.vcf.gz
 ```
-Example filtering no 2: same as above + removing low quality genotypes (GQ<20) and SNPs with >90% missing data with [vcftools](https://vcftools.github.io/man_latest.html)
+Filtering with [vcftools](https://vcftools.github.io/man_latest.html) - same as above + removing low quality genotypes (GQ<20) and SNPs with >90% missing data with
 ```
-vcftools --gzvcf snp_bcftools.f.vcf.gz --remove-indels --remove-filtered-all --minDP 10 --minGQ 20 --max-missing 0.9 --recode --recode-INFO-all --out snp_bcftools.f2
+vcftools --gzvcf snp_bcftools_annotated.vcf.gz --remove-indels --remove-filtered-all --minDP 10 --minGQ 20 --max-missing 0.9 --recode --recode-INFO-all --out snp_bcftools.f2
 ```
+
+##### 8. SNP calling with GATK Haplotype Caller (gatk-4.1.0.0)
+
+Indexing reference
+```
+gatk CreateSequenceDictionary -R ref.fasta
+```
+Haplotype Caller
+```
+for bam in bams/*_rmdup.bam
+  do
+  sample=$(echo $bam | cut -d'/' -f2 | sed 's/_rmdup.bam//g')
+  echo $sample
+  gatk HaplotypeCaller \
+    -R ref.fasta \
+    -I $bam \
+    -O gatk/${sample}.g.vcf.gz \
+    -ERC GVCF \
+    -G StandardAnnotation
+  done
+```
+Combine GVCFs
+```
+gatk CombineGVCFs -R ref.fasta \
+    -V gatk/samp1.g.vcf.gz -V gatk/samp2.g.vcf.gz -V gatk/samp3.g.vcf.gz \
+    -O combined/combined.g.vcf \
+    -G StandardAnnotation
+done
+```
+Genotype GCVF
+```
+gatk GenotypeGVCFs -R ref.fasta \
+    -V combined/combined.g.vcf \
+    -O combined/combined.vcf \
+    #--include-non-variant-sites true \
+    -G StandardAnnotation \
+    --annotation Coverage \
+    --annotation QualByDepth \
+    --annotation MappingQuality \
+    --annotation MappingQualityRankSumTest \
+    --annotation ExcessHet
+```
+Variant Filtration - annotating poor quality SNPs: standard hard filters + GQ < 20, DP per sample < 3
+Adjusting hard filters [here](https://gatk.broadinstitute.org/hc/en-us/articles/360035890471-Hard-filtering-germline-short-variants)
+```
+gatk VariantFiltration -R ref.fasta \
+    -V combined/combined.vcf \
+    -O filtered/combined_VF.vcf \
+    -filter "QD < 2.0" \
+    --filter-name "QD" \
+    -filter "MQ < 40.0" \
+    --filter-name "MapQ" \
+    -filter "FS > 60.0" \
+    --filter-name "FS" \
+    -filter "SOR > 3.0" \
+    --filter-name "SOR" \
+    -filter "MQRankSum < -12.5" \
+    --filter-name "MQRS" \
+    -filter "ReadPosRankSum < -8.0" \
+    --filter-name "RPRS" \
+    --genotype-filter-expression "GQ < 20" \
+    --genotype-filter-name "GQ" \
+    --genotype-filter-expression "DP < 3" \
+    --genotype-filter-name "DP" \
+    --set-filtered-genotype-to-no-call true \
+    --QUIET true
+```
+Select Variants - only SNPs which pass above filters
+```
+gatk SelectVariants -R ref.fasta \
+    -V filtered/combined_VF.vcf \
+    -O filtered/combined_SV.vcf \
+    --exclude-filtered true \
+    --exclude-non-variants true \
+    --remove-unused-alternates true \
+    #--select-type-to-exclude MIXED \
+    #--select-type-to-exclude SYMBOLIC \
+    --select-type-to-exclude INDEL
+```
+
