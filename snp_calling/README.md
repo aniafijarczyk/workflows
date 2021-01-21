@@ -263,5 +263,29 @@ gatk SelectVariants -R ref.fasta \
     --select-type-to-exclude INDEL
 ```
 
-##### 9. SNP calling with Freebayes
+##### 9. SNP calling with Freebayes (v1.3.1-17-gaa2ace8)
 
+If needed adjusting RG fields in bam files using picard
+```
+picard AddOrReplaceReadGroups I=bams/${sample}_rmdup.bam O=bams/${sample}_RG.bam RGID=${sampleID} RGLB=${sampleID} RGPL=ILLUMINA RGPU=${flowcell.lane}.${sampleID} RGSM=${sampleID}
+```
+SNP calling with [freebayes](https://github.com/freebayes/freebayes)
+```
+bams=bams/*_RG.bam
+bamfiles_list=$(ls $bams)
+freebayes -f ref.fasta -q 20 --use-best-n-alleles 4 --limit-coverage 20000 -F 0.02 -L $bamfiles_list > freebayes.vcf
+```
+Splitting variants (problematic in multiallelic variants)
+```
+$DIR/vcflib/bin/vcfallelicprimitives -kg snps_freebayes.vcf >freebayes_calls.vcf
+```
+Filtering variants
+```
+$DIR/vcflib/bin/vcffilter -f "QUAL > 1 & QUAL / AO > 10 & SAF > 0 & SAR > 0 & RPR > 1 & RPL > 1 & MQM / MQMR > 0.9 & MQM / MQMR < 1.05" freebayes_calls.vcf > freebayes_calls.f.vcf
+```
+Selecting SNPs
+```
+bgzip freebayes_calls.f.vcf
+tabis -p vcf freebayes_calls.f.vcf.gz
+bcftools view -m2 -M2 --include 'TYPE="snp"' -O v -o freebayes_calls.f.snp.vcf freebayes_calls.f.vcf.gz
+```
