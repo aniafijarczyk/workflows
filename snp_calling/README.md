@@ -94,7 +94,7 @@ rm queue.txt
 touch queue.txt
 for sample in bams/*.bam
   do
-  nameis=$(echo $sample | sed 's/_sorted.bam//' | cut -d"/" -f 2)
+  nameis=$(echo $sample | sed 's/_sorted.bam//' | cut -d'/' -f 2)
   echo $nameis
   echo 'java -jar '${dir}'/picard/build/libs/picard.jar MarkDuplicates I=bams/'${nameis}'_sorted.bam O='${nameis}'_rmdup.bam M='${nameis}'_picard.metrics REMOVE_DUPLICATES=true' >> queue.txt
   done
@@ -102,7 +102,7 @@ for sample in bams/*.bam
 
 ##### 7. SNP calling with samtools/bcftools
 
-Realigning reads around indels
+Realigning reads around indels with [samtools calmd](http://www.htslib.org/doc/samtools-calmd.html)
 ```
 for bam in bams/*.bams
   do
@@ -119,4 +119,32 @@ ls bams/*_calmd.bam > bam_list
 bcftools mpileup -C50 -f reference.fasta -q4 -a FORMAT/AD,FORMAT/ADR,FORMAT/ADF,FORMAT/DP -Ou -b bams_list | \
 bcftools call -cv -f gq -Oz -o snp_bcftools.vcf.gz -
 tabix -p vcf snp_bcftools.vcf.gz
+```
+
+Some filtering with [vcf-annotate](https://manpages.debian.org/testing/vcftools/vcf-annotate.1.en.html)
+
+```
+zcat snp_bcftools.vcf.gz | grep -v "^#" | awk '{print $1"\t"$2"\t"$2"\tsnp_"NR}' > snp_bcftools_annotations
+bgzip snp_bcftools_annotations
+tabix -s 1 -b 2 -e 3 snp_bcftools_annotations.gz
+```
+```
+export PERL5LIB=/home/anna/github/vcftools/src/perl
+bcftools view snp_bcftools.vcf.gz | vcf-annotate -f +/d=10/D=10000/q=20/Q=10/-W/w=10 \
+--fill-HWE --fill-type -n -a snp_bcftools_annotations.gz -c CHROM,FROM,TO,INFO/SNP_ID \
+-d key=INFO,ID=SNP_ID,Number=1,Type=Integer,Description='SnpList' | bgzip -c > snp_bcftools_annotated.vcf.gz
+```
+```
+StrandBias FLOAT Min P-value for strand bias (given PV4) [0.0001]
+BaseQualBias FLOAT Min P-value for baseQ bias [1e-100]
+MapQualBias FLOAT Min P-value for mapQ bias [0]
+EndDistBias FLOAT Min P-value for end distance bias [0.0001]
+a = MinAB INT Minimum number of alternate bases [2]
+c = SnpCluster INT1,INT2 Filters clusters of 'INT1' or more SNPs within a run of 'INT2' bases []
+D = MaxDP INT Maximum read depth [10000000]
+d = MinDP INT Minimum read depth [2]
+q = MinMQ INT Minimum RMS mapping quality for SNPs [10]
+Q = Qual INT Minimum value of the QUAL field [10]
+W = GapWin INT Window size for filtering adjacent gaps [10]
+w = SnpGap INT SNP within INT bp around a gap to be filtered [10]
 ```
