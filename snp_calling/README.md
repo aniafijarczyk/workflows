@@ -1,7 +1,7 @@
-### Scheme for SNP calling from aligned short read illumina reads
+### Scheme for SNP calling from aligned short illumina reads
 
 
-1. Quality check of fastq (fastqc, multiqc)
+[1. Quality check of fastq (fastqc, multiqc)](#new-header)
 2. Adapter trimming (trimmomatic, cutadapt)
 3. Mapping (bwa mem)
 4. *(optional)* Checking mapping quality (goleft)
@@ -13,6 +13,7 @@
 
 
 
+# New Header
 ##### 1. Quality check of fastq 
 
 Using (fastqc/0.11.8)
