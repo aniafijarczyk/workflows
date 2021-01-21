@@ -154,7 +154,7 @@ Filtering with [bcftools view](http://samtools.github.io/bcftools/bcftools.html#
 bcftools view -i 'TYPE=="snp" & (DP4[0]+DP4[1]+DP4[2]+DP4[3])>=10 & FILTER=="PASS"' \
 snp_bcftools_annotated.vcf.gz -Oz -o snp_bcftools.f.vcf.gz
 ```
-Filtering with [vcftools](https://vcftools.github.io/man_latest.html) - same as above + removing low quality genotypes (GQ<20) and SNPs with >90% missing data with
+Filtering with [vcftools](https://vcftools.github.io/man_latest.html) - same as above + removing low quality genotypes (GQ<20) and SNPs with >10% missing data with
 ```
 vcftools --gzvcf snp_bcftools_annotated.vcf.gz --remove-indels --remove-filtered-all --minDP 10 --minGQ 20 --max-missing 0.9 --recode --recode-INFO-all --out snp_bcftools.f2
 ```
@@ -162,7 +162,7 @@ vcftools --gzvcf snp_bcftools_annotated.vcf.gz --remove-indels --remove-filtered
 ##### 8. SNP calling with GATK Haplotype Caller (gatk-4.1.0.0)
 
 If bams generate error - readjust RG field following [this site](https://gatk.broadinstitute.org/hc/en-us/articles/360035890671-Read-groups)   
-Here adjusting RG fields at the mapping stage
+Here adjusting RG fields at the mapping stage (can be also done with picard - shown below under freebayes)
 ```
 bwa mem -t 10 -R "@RG\tID:HKTFYCCXY.3\tLB:G4_1\tPL:ILLUMINA\tPU:HKTFYCCXY.3.sampleID\tSM:sampleID" ref.fasta reads/${sample}_R1P.fastq.gz reads/${sample}_R2P.fastq.gz | samtools sort -@ 10 -o bams2/${sample}_sorted.bam -
 ```
@@ -174,7 +174,7 @@ where:
 # LB:sample
 # PU:flowcell.lane.sample
 ```
-Getting RG info from each fastq file (may need to be adjusted to sequencing tech output)
+Getting RG info from each fastq file (may need to be adjusted to sequencing tech output): filename, sampleID, flow cell, flow cell lane, sth else
 ```
 fastqs=reads/*_R1.fastq.gz
 for fastq in $fastqs
