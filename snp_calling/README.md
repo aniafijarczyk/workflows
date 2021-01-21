@@ -161,6 +161,31 @@ vcftools --gzvcf snp_bcftools_annotated.vcf.gz --remove-indels --remove-filtered
 
 ##### 8. SNP calling with GATK Haplotype Caller (gatk-4.1.0.0)
 
+If bams generate error - readjust RG field following [this site](https://gatk.broadinstitute.org/hc/en-us/articles/360035890671-Read-groups)   
+Here adjusting RG fields at the mapping stage
+```
+bwa mem -t 10 -R "@RG\tID:HKTFYCCXY.3\tLB:G4_1\tPL:ILLUMINA\tPU:HKTFYCCXY.3.sampleID\tSM:sampleID" ref.fasta reads/${sample}_R1P.fastq.gz reads/${sample}_R2P.fastq.gz | samtools sort -@ 10 -o bams2/${sample}_sorted.bam -
+```
+```
+where:
+# ID:flowcell.lane
+# PL:ILLUMINA
+# SM:sample
+# LB:sample
+# PU:flowcell.lane.sample
+```
+Getting RG info from each fastq file (may need to be adjusted to sequencing tech output)
+```
+fastqs=reads/*_R1.fastq.gz
+for fastq in $fastqs
+  do
+  nameis=$(echo $fastq | cut -d"/" -f2)
+  core=$(echo $nameis | sed 's/_R1.fastq.gz//g')
+  ids=$(echo $nameis | sed 's/_R1.fastq.gz//g' | cut -d"." -f1)
+  zcat reads/${nameis} | head -n1 | awk -F":" -v name="${core}" -v var="${ids}" '{print name,var,$3,$4,$10}'
+  done
+```
+
 Indexing reference
 ```
 gatk CreateSequenceDictionary -R ref.fasta
@@ -200,7 +225,7 @@ gatk GenotypeGVCFs -R ref.fasta \
     --annotation MappingQualityRankSumTest \
     --annotation ExcessHet
 ```
-Variant Filtration - annotating poor quality SNPs: standard hard filters + GQ < 20, DP per sample < 3
+Variant Filtration - annotating poor quality SNPs: standard hard filters + GQ < 20, DP per sample < 3  
 Adjusting hard filters [here](https://gatk.broadinstitute.org/hc/en-us/articles/360035890471-Hard-filtering-germline-short-variants)
 ```
 gatk VariantFiltration -R ref.fasta \
@@ -233,8 +258,10 @@ gatk SelectVariants -R ref.fasta \
     --exclude-filtered true \
     --exclude-non-variants true \
     --remove-unused-alternates true \
-    #--select-type-to-exclude MIXED \
-    #--select-type-to-exclude SYMBOLIC \
+    --select-type-to-exclude MIXED \
+    --select-type-to-exclude SYMBOLIC \
     --select-type-to-exclude INDEL
 ```
+
+##### 9. SNP calling with Freebayes
 
