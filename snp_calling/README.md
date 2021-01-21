@@ -149,12 +149,12 @@ Q = Qual INT Minimum value of the QUAL field [10]
 W = GapWin INT Window size for filtering adjacent gaps [10]
 w = SnpGap INT SNP within INT bp around a gap to be filtered [10]
 ```
+Example filtering: only SNPs, with coverage min 10 per sample, and variants which pass above filters
 ```
-Example filtering: filtering SNPs, with coverage min 10 per sample, and variants which pass above filters
 bcftools view -i 'TYPE=="snp" & (DP4[0]+DP4[1]+DP4[2]+DP4[3])>=10 & FILTER=="PASS"' \
 snp_bcftools_annotated.vcf.gz -Oz -o snp_bcftools.f.vcf.gz
 ```
-Removing low quality genotypes and SNPs with >90% missing data with [vcftools](https://vcftools.github.io/man_latest.html)
+Example filtering no 2: same as above + removing low quality genotypes (GQ<20) and SNPs with >90% missing data with [vcftools](https://vcftools.github.io/man_latest.html)
 ```
-vcftools --gzvcf snp_bcftools.f.vcf.gz --minGQ 20 --max-missing 0.9 --recode --recode-INFO-all --out snp_bcftools.f2
+vcftools --gzvcf snp_bcftools.f.vcf.gz --remove-indels --remove-filtered-all --minDP 10 --minGQ 20 --max-missing 0.9 --recode --recode-INFO-all --out snp_bcftools.f2
 ```
