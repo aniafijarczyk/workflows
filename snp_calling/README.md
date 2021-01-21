@@ -2,14 +2,14 @@
 
 
 [1. Quality check of fastq (fastqc, multiqc)](#1-quality-check-of-fastq)  
-2. Adapter trimming (trimmomatic, cutadapt)
-3. Mapping (bwa mem)
-4. *(optional)* Checking mapping quality (goleft)
-5. *(optional)* Generating read depth per site (samtools)
-6. Removing duplicates (picard-tools)
-7. SNP calling with samtools/bcftools
-8. SNP calling with GATK Haplotype Caller
-9. SNP calling with Freebayes
+[2. Adapter trimming (trimmomatic, cutadapt)](#2-adapter-trimming)  
+[3. Mapping (bwa mem)](#3-mapping)
+[4. *(optional)* Checking mapping quality (goleft)](#4-checking-mapping-quality)
+[5. *(optional)* Generating read depth per site (samtools)](#5-generating-read-depth-per-site)
+[6. Marking duplicates (picard-tools)](#6-marking-duplicates)
+[7. SNP calling with samtools/bcftools](#7-snp-calling-with-bcftools)
+[8. SNP calling with GATK Haplotype Caller](#8-snp-calling-with-GATK)
+[9. SNP calling with Freebayes](#9-snp-calling-with-freebayes)
 
 
 
@@ -23,7 +23,7 @@ fastqc -o ./ ${list}
 ```
 [MultiQC](https://multiqc.info/)
 
-##### 2. Adapter trimming
+##### 2 Adapter trimming
 
 Using [trimmomatic](http://www.usadellab.org/cms/uploads/supplementary/Trimmomatic/TrimmomaticManual_V0.32.pdf) in a loop
 ```
@@ -48,7 +48,7 @@ ILLUMINACLIP:TruSeq3-PE-adapters.fa:6:20:10 MINLEN:21 ::: $(ls -1 reads/*_R1.fas
 Location of adapter sequences: /prg/trimmomatic/0.36/adapters/
 
 
-##### 3. Mapping
+##### 3 Mapping
 
 Mapping & sorting, indexing and calculating stats with 2 threads with [bwa mem](http://bio-bwa.sourceforge.net/bwa.shtml) (bwa/0.7.17)
 ```
@@ -68,20 +68,20 @@ for sample in AT146 Yu16
 ```
 
 
-##### 4. Checking mapping quality
+##### 4 Checking mapping quality
 
 Mapping coverage from bam index files with [goleft](https://github.com/brentp/goleft)
 ```
 goleft indexcov --directory stats_indexcov/ bams/*.bam
 ```
 
-##### 5. Generating read depth per site
+##### 5 Generating read depth per site
 
 ```
 samtools depth -a bams/${sample}_SpA_sorted.bam > bams/${sample}_SpA_sorted_depth.out
 ```
 
-##### 6. Marking duplicate reads
+##### 6 Marking duplicate reads
 
 
 Marking duplicates with [picard](https://broadinstitute.github.io/picard/) (picard-2.18)
@@ -101,7 +101,7 @@ for sample in bams/*.bam
   done
 ```
 
-##### 7. SNP calling with samtools/bcftools
+##### 7 SNP calling with bcftools
 
 Realigning reads around indels with [samtools calmd](http://www.htslib.org/doc/samtools-calmd.html)
 ```
@@ -159,7 +159,7 @@ Filtering with [vcftools](https://vcftools.github.io/man_latest.html) - same as 
 vcftools --gzvcf snp_bcftools_annotated.vcf.gz --remove-indels --remove-filtered-all --minDP 10 --minGQ 20 --max-missing 0.9 --recode --recode-INFO-all --out snp_bcftools.f2
 ```
 
-##### 8. SNP calling with GATK Haplotype Caller (gatk-4.1.0.0)
+##### 8 SNP calling with GATK (gatk-4.1.0.0)
 
 If bams generate error - readjust RG field following [this site](https://gatk.broadinstitute.org/hc/en-us/articles/360035890671-Read-groups)   
 Here adjusting RG fields at the mapping stage (can be also done with picard - shown below under freebayes)
@@ -263,7 +263,7 @@ gatk SelectVariants -R ref.fasta \
     --select-type-to-exclude INDEL
 ```
 
-##### 9. SNP calling with Freebayes (v1.3.1-17-gaa2ace8)
+##### 9 SNP calling with Freebayes (v1.3.1-17-gaa2ace8)
 
 Readjustment of RG fields in bam files using picard, if needed
 ```
