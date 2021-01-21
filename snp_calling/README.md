@@ -15,16 +15,17 @@
 
 ##### 1. Quality check of fastq 
 
+Using (fastqc/0.11.8)
 ```
 fastq=../../../DATA/rnaseq/*.fastq
 list=$(ls $fastq)
 fastqc -o ./ ${list}
 ```
+[MultiQC](https://multiqc.info/)
 
 ##### 2. Adapter trimming
 
-
-In a loop
+Using [trimmomatic](http://www.usadellab.org/cms/uploads/supplementary/Trimmomatic/TrimmomaticManual_V0.32.pdf) in a loop
 ```
 for sample in AT146 Yu16
   do
@@ -37,7 +38,7 @@ for sample in AT146 Yu16
   done
 ```
 
-With parallel
+or with parallel
 ```
 parallel -j 10 java -jar -Xmx4g /prg/trimmomatic/0.33/trimmomatic-0.33.jar PE -phred33 reads/{}_R1.fastq.gz reads/{}_R2.fastq.gz \
 trimmed/{}_outR1P.fastq trimmed/{}_outR1U.fastq trimmed/{}_outR2P.fastq trimmed/{}_outR2U.fastq \
@@ -49,7 +50,7 @@ Location of adapter sequences: /prg/trimmomatic/0.36/adapters/
 
 ##### 3. Mapping
 
-Mapping & sorting, indexing and calculating stats with 2 threads (bwa/0.7.17, samtools/1.8)
+Mapping & sorting, indexing and calculating stats with 2 threads with [bwa mem](http://bio-bwa.sourceforge.net/bwa.shtml) (bwa/0.7.17)
 ```
 bwa index reference.fasta
 samtools faidx reference.fasta
@@ -80,10 +81,10 @@ goleft indexcov --directory stats_indexcov/ bams/*.bam
 samtools depth -a bams/${sample}_SpA_sorted.bam > bams/${sample}_SpA_sorted_depth.out
 ```
 
-##### 6. Removing duplicate reads
+##### 6. Marking duplicate reads
 
 
-Removing duplicates with picard (picard-2.18)
+Marking duplicates with [picard](https://broadinstitute.github.io/picard/) (picard-2.18)
 ```
 java -jar ${dir}/picard/build/libs/picard.jar MarkDuplicates I=${sample}_SpA_sorted.bam O=${sample}_SpA_rmdup.bam M=${sample}_SpA_picard.metrics REMOVE_DUPLICATES=true
 ```
@@ -96,7 +97,7 @@ for sample in bams/*.bam
   do
   nameis=$(echo $sample | sed 's/_sorted.bam//' | cut -d'/' -f 2)
   echo $nameis
-  echo 'java -jar '${dir}'/picard/build/libs/picard.jar MarkDuplicates I=bams/'${nameis}'_sorted.bam O='${nameis}'_rmdup.bam M='${nameis}'_picard.metrics REMOVE_DUPLICATES=true' >> queue.txt
+  echo 'java -jar '${dir}'/picard/build/libs/picard.jar MarkDuplicates I=bams/'${nameis}'_sorted.bam O=bams/'${nameis}'_rmdup.bam M=bams/'${nameis}'_picard.metrics REMOVE_DUPLICATES=true' >> queue.txt
   done
 ```
 
@@ -104,7 +105,7 @@ for sample in bams/*.bam
 
 Realigning reads around indels with [samtools calmd](http://www.htslib.org/doc/samtools-calmd.html)
 ```
-for bam in bams/*.bams
+for bam in bams/*_rmdup.bams
   do
   nameis=$(echo $bam | sed 's/.bam//g')
   echo $nameis
@@ -112,7 +113,7 @@ for bam in bams/*.bams
   done
 ```
 
-SNP calling with [bcftools mpileup](http://samtools.github.io/bcftools/bcftools.html#mpileup) and [bcftools call](http://samtools.github.io/bcftools/bcftools.html#call)
+SNP calling with [bcftools mpileup](http://samtools.github.io/bcftools/bcftools.html#mpileup) and [bcftools call](http://samtools.github.io/bcftools/bcftools.html#call) (bcftools v1.9)
 [I think bcftools mpileup doesn't work with bcftools call -m (using -c instead)]
 ```
 ls bams/*_calmd.bam > bam_list
@@ -147,4 +148,13 @@ q = MinMQ INT Minimum RMS mapping quality for SNPs [10]
 Q = Qual INT Minimum value of the QUAL field [10]
 W = GapWin INT Window size for filtering adjacent gaps [10]
 w = SnpGap INT SNP within INT bp around a gap to be filtered [10]
+```
+```
+Example filtering: filtering SNPs, with coverage min 10 per sample, and variants which pass above filters
+bcftools view -i 'TYPE=="snp" & (DP4[0]+DP4[1]+DP4[2]+DP4[3])>=10 & FILTER=="PASS"' \
+snp_bcftools_annotated.vcf.gz -Oz -o snp_bcftools.f.vcf.gz
+```
+Removing low quality genotypes and SNPs with >90% missing data with [vcftools](https://vcftools.github.io/man_latest.html)
+```
+vcftools --gzvcf snp_bcftools.f.vcf.gz --minGQ 20 --max-missing 0.9 --recode --recode-INFO-all --out snp_bcftools.f2
 ```
