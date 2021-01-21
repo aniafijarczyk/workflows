@@ -81,10 +81,10 @@ goleft indexcov --directory stats_indexcov/ bams/*.bam
 samtools depth -a bams/${sample}_SpA_sorted.bam > bams/${sample}_SpA_sorted_depth.out
 ```
 
-##### 6 Marking duplicate reads
+##### 6 Marking duplicates
 
 
-Marking duplicates with [picard](https://broadinstitute.github.io/picard/) (picard-2.18)
+Marking duplicate reads with [picard](https://broadinstitute.github.io/picard/) (picard-2.18)
 ```
 java -jar ${dir}/picard/build/libs/picard.jar MarkDuplicates I=${sample}_SpA_sorted.bam O=${sample}_SpA_rmdup.bam M=${sample}_SpA_picard.metrics REMOVE_DUPLICATES=true
 ```
@@ -161,7 +161,6 @@ vcftools --gzvcf snp_bcftools_annotated.vcf.gz --remove-indels --remove-filtered
 
 ##### 8 SNP calling with GATK
 
-Using gatk-4.1.0.0
 If bams generate error - readjust RG field following [this site](https://gatk.broadinstitute.org/hc/en-us/articles/360035890671-Read-groups)   
 Here adjusting RG fields at the mapping stage (can be also done with picard - shown below under freebayes)
 ```
@@ -191,7 +190,7 @@ Indexing reference
 ```
 gatk CreateSequenceDictionary -R ref.fasta
 ```
-Haplotype Caller
+Haplotype Caller (gatk-4.1.0.0)
 ```
 for bam in bams/*_rmdup.bam
   do
@@ -266,12 +265,11 @@ gatk SelectVariants -R ref.fasta \
 
 ##### 9 SNP calling with Freebayes
 
-Using Freebayes v1.3.1-17-gaa2ace8
 Readjustment of RG fields in bam files using picard, if needed
 ```
 picard AddOrReplaceReadGroups I=bams/${sample}_rmdup.bam O=bams/${sample}_RG.bam RGID=${sampleID} RGLB=${sampleID} RGPL=ILLUMINA RGPU=${flowcell.lane}.${sampleID} RGSM=${sampleID}
 ```
-SNP calling with [freebayes](https://github.com/freebayes/freebayes)
+SNP calling with [freebayes](https://github.com/freebayes/freebayes) (v1.3.1-17-gaa2ace8)
 ```
 bams=bams/*_RG.bam
 bamfiles_list=$(ls $bams)
