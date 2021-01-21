@@ -13,7 +13,7 @@
 
 
 
-##### 1 Quality Check Of Fastq
+##### 1 Quality check of fastq
 
 Using (fastqc/0.11.8)
 ```
