@@ -1,14 +1,14 @@
 ### Genome assembly from illumina PE reads for medium sized genomes (fungi)
 
-[1. Quality check (fastqc)](#1-Quality-check) 
-[2. Adapter trimming (trimmomatic)](#2-Adapter-trimming) 
-[3. *(optionally)* Read merging (bbmerge)](#3-Read-merging) 
-[4. Assembly (spades,abyss)](#4-Assembly) 
-[5. Assembly evaluation (quast)](#5-Assembly-evaluation) 
-[6. Contamination](#6-contamination) 
-[7. Mitochondrial genome assembly](#7-mitochondrial-genome-assembly) 
-[8. Contig coverage](#8-contig-coverage) 
-[9. Gene completeness (busco)](#9-gene-completeness) 
+[1. Quality check (fastqc)](#1-Quality-check)  
+[2. Adapter trimming (trimmomatic)](#2-Adapter-trimming)  
+[3. *(optionally)* Read merging (bbmerge)](#3-Read-merging)  
+[4. Assembly (spades,abyss)](#4-Assembly)  
+[5. Assembly evaluation (quast)](#5-Assembly-evaluation)  
+[6. Contamination](#6-contamination)  
+[7. Mitochondrial genome assembly](#7-mitochondrial-genome-assembly)  
+[8. Contig coverage](#8-contig-coverage)  
+[9. Gene completeness (busco)](#9-gene-completeness)  
 
 
 ##### 1 Quality check
@@ -77,4 +77,36 @@ R2=reads_R2um.fastq
 RS=reads_merged.fastq
 abyss-pe -C abyss_v2 name=tetropii k=64 q=15 in="$R1 $R2" se="$RS"
 ```
-
+##### 5 Assembly evaluation
+Using [quast](https://github.com/ablab/quast) (v4.3)
+```
+quast.py -o quast_spades -m 200 -l spades_v1,spades_v2,abyss_v1 ./spades_v1/scaffolds.fasta ./spades_v2/scaffolds.fasta ./abyss_v1/tetropii.fasta
+quast.py -o quast_spades_broken -m 200 -l spades_v1,spades_v2,abyss_v1 ./spades_v1/scaffolds.fasta ./spades_v2/scaffolds.fasta ./abyss_v1/tetropii.fasta
+```
+##### 6 Contamination
+A simple approach to filter out contaminated contigs. In short, in case of assmbling fungi, contigs are blasted against fungal proteins from SwissProt and separately against bacterial and viral proteins. Contigs with higher overlap of bac/vir than fungal proteins are marked as potential contaminants.  
+Blasting contigs using diamond v0.9.29
+```
+dbdir=uniprot_sprot.fasta
+diamond blastx -p 10 -d $dbdir -q scaffolds.fasta -o blastx_sample_uniprot_fungi.tab -f 6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore salltitles staxids \
+-e 0.001 --max-target-seqs 1000 --taxonlist 4751
+diamond blastx -p 10 -d $dbdir -q scaffolds.fasta -o blastx_sample_uniprot_bacvir.tab -f 6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore salltitles staxids \
+-e 0.001 --max-target-seqs 1000 --taxonlist 2,2157,10239
+```
+Find overlapping hits in each output
+```
+getBestOverlapFromBlastx.py fungi blastx_sample_uniprot_fungi.tab
+getBestOverlapFromBlastx.py bacvir blastx_sample_uniprot_bacvir.tab
+```
+Combine files with fungal and bacvir overlaping hits
+```
+cat blastx_sample_uniprot_fungi_bestoverlap.tab blastx_sample_uniprot_bacvir_bestoverlap.tab > blastx_sample_merged.tab
+```
+Find best hit from fungal and bacvir hits
+```
+getBestOverlapFromMerged.py blastx_sample_merged.tab
+```
+Compare fungal and bacvir hits and find contaminated contigs
+```
+python calculateOverlap.py blastx_sample_merged_bestoverlap.tab spades_TB5_clean_softmasked.fasta.fai
+``` 
