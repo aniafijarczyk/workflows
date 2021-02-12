@@ -13,7 +13,7 @@
 
 ##### 1 Quality check
 
-Checking quality of fastq reads with [fastqc](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/)
+Checking quality of fastq reads with [fastqc](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/) (v0.11.8)
 
 ```
 fastq=*.fastq
@@ -24,7 +24,7 @@ Check [help](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/Help/3%20
 
 ##### 2 Adapter trimming
 
-Using [trimmomatic](http://www.usadellab.org/cms/uploads/supplementary/Trimmomatic/TrimmomaticManual_V0.32.pdf)
+Using [trimmomatic](http://www.usadellab.org/cms/uploads/supplementary/Trimmomatic/TrimmomaticManual_V0.32.pdf) (v0.36)
 
 ```
 for sample in AT146 Yu16
@@ -117,7 +117,7 @@ Preparing config files (seed mtDNA genome, insert length, path to fastq files)
 ```
 python makeConfigFile.py
 ```
-Assembling mtDNA with Novoplasty v3.8.3
+Assembling mtDNA with [Novoplasty](https://github.com/ndierckx/NOVOPlasty) (v3.8.3)
 ```
 configFiles=config_*.txt
 for config in $configFiles
@@ -126,7 +126,7 @@ for config in $configFiles
   done
 
 ```
-Aligning mtDNA to whole assembly to identify mtDNA contigs with nucmer (mummer v4.0)
+Aligning mtDNA to whole assembly to identify mtDNA contigs with [nucmer](http://mummer.sourceforge.net/) (mummer v4.0)
 ```
 nucmer --maxgap=1000 --mincluster=100 --prefix=nucmer_mtDNA scaffolds.fasta mtdna_assembly.fasta
 delta-filter -q -r nucmer_mtDNA.delta > nucmer_mtDNA_qr.filter
@@ -155,7 +155,7 @@ python getCoverage.py
 ```
 
 ##### 9 Gene completeness
-Finding gene completeness with [busco](https://busco.ezlab.org/)
+Finding gene completeness with [busco](https://busco.ezlab.org/) (v3.0.1)
 ```
 lin=sordariomyceta_odb9
 run_BUSCO.py -i scaffolds_${sample}.fasta -m geno -o busco_${sample} -l $lin -sp magnaporthe_grisea -c 4
