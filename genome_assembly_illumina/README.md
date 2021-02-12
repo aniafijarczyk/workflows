@@ -85,7 +85,7 @@ quast.py -o quast_spades_broken -m 200 -l spades_v1,spades_v2,abyss_v1 ./spades_
 ```
 ##### 6 Contamination
 A simple approach to filter out contaminated contigs. In short, in case of assmbling fungi, contigs are blasted against fungal proteins from SwissProt and separately against bacterial and viral proteins. Contigs with higher overlap of bac/vir than fungal proteins are marked as potential contaminants.  
-Blasting contigs using diamond v0.9.29
+Blasting contigs using [diamond](https://github.com/bbuchfink/diamond) (v0.9.29)
 ```
 dbdir=uniprot_sprot.fasta
 diamond blastx -p 10 -d $dbdir -q scaffolds.fasta -o blastx_sample_uniprot_fungi.tab -f 6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore salltitles staxids \
