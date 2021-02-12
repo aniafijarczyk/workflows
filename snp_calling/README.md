@@ -286,6 +286,6 @@ $DIR/vcflib/bin/vcffilter -f "QUAL > 1 & QUAL / AO > 10 & SAF > 0 & SAR > 0 & RP
 Selecting SNPs
 ```
 bgzip freebayes_calls.f.vcf
-tabis -p vcf freebayes_calls.f.vcf.gz
+tabix -p vcf freebayes_calls.f.vcf.gz
 bcftools view -m2 -M2 --include 'TYPE="snp"' -O v -o freebayes_calls.f.snp.vcf freebayes_calls.f.vcf.gz
 ```
