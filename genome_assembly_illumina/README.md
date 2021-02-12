@@ -132,7 +132,7 @@ nucmer --maxgap=1000 --mincluster=100 --prefix=nucmer_mtDNA scaffolds.fasta mtdn
 delta-filter -q -r nucmer_mtDNA.delta > nucmer_mtDNA_qr.filter
 show-coords -rclT nucmer_mtDNA_qr.filter > nucmer_mtDNA_qr.coords
 ```
-Calculate % coverage of contigs by mtDNA
+Calculate % contig length covered by mtDNA
 ```
 python getMtdnaInfo.py
 ```
@@ -149,9 +149,20 @@ bwa mem -t 3 ${ref} ${reads1} ${reads2} | samtools sort -o bams/scaffolds.bam -
 samtools index bams/scaffolds.bam
 samtools depth -a bams/scaffolds.bam > depths/scaffolds_depth.out
 ```
-Calculating read depth (cov_mean) and normalized read depth (ncov = cov_mean/median)
+Calculating mean read depth per contig (cov_mean) and normalized read depth (ncov = cov_mean/median assembly)
 ```
 python getCoverage.py
 ```
 
-##### 9 
+##### 9 Gene completeness
+Finding gene completeness with [busco](https://busco.ezlab.org/)
+```
+lin=sordariomyceta_odb9
+run_BUSCO.py -i scaffolds_${sample}.fasta -m geno -o busco_${sample} -l $lin -sp magnaporthe_grisea -c 4
+or
+run_BUSCO.py -i scaffolds_${sample}.fasta -m geno -o busco_${sample} -l $lin -sp magnaporthe_grisea -c 1
+```
+Summarize info
+```
+python getBusco.py
+```
