@@ -110,3 +110,48 @@ Compare fungal and bacvir hits and find contaminated contigs
 ```
 python calculateOverlap.py blastx_sample_merged_bestoverlap.tab spades_TB5_clean_softmasked.fasta.fai
 ``` 
+
+##### 7 Mitochondrial genome assembly
+
+Preparing config files (seed mtDNA genome, insert length, path to fastq files) 
+```
+python makeConfigFile.py
+```
+Assembling mtDNA with Novoplasty v3.8.3
+```
+configFiles=config_*.txt
+for config in $configFiles
+  do
+  perl $DIR/NOVOPlasty3.8.3.pl -c $config
+  done
+
+```
+Aligning mtDNA to whole assembly to identify mtDNA contigs with nucmer (mummer v4.0)
+```
+nucmer --maxgap=1000 --mincluster=100 --prefix=nucmer_mtDNA scaffolds.fasta mtdna_assembly.fasta
+delta-filter -q -r nucmer_mtDNA.delta > nucmer_mtDNA_qr.filter
+show-coords -rclT nucmer_mtDNA_qr.filter > nucmer_mtDNA_qr.coords
+```
+Calculate % coverage of contigs by mtDNA
+```
+python getMtdnaInfo.py
+```
+
+##### 8 Contig coverage
+
+Checking read depth of contigs to exclude low-covered contigs (eg ncov < 0.05) 
+Mapping reads to assembly and calculating depth
+```
+ref=scaffolds.fasta
+reads1=reads_outR1P.fastq.gz
+reads2=reads_outR2P.fastq.gz
+bwa mem -t 3 ${ref} ${reads1} ${reads2} | samtools sort -o bams/scaffolds.bam -
+samtools index bams/scaffolds.bam
+samtools depth -a bams/scaffolds.bam > depths/scaffolds_depth.out
+```
+Calculating read depth (cov_mean) and normalized read depth (ncov = cov_mean/median)
+```
+python getCoverage.py
+```
+
+##### 9 
