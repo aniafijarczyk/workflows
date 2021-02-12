@@ -1,14 +1,14 @@
 ### Genome assembly from illumina PE reads for medium sized genomes (fungi)
 
-[1. Quality check (fastqc)](#1-Quality-check)
-[2. Adapter trimming (trimmomatic)](#2-Adapter-trimming)
-[3. *(optionally)* Read merging (bbmerge)](#3-Read-merging)
-[4. Assembly (spades,abyss)](#4-Assembly)
-[5. Assembly evaluation (quast)](#5-Assembly-evaluation)
-[6. Contamination](#6-contamination)
-[7. Mitochondrial genome assembly](#7-mitochondrial-genome-assembly)
-[8. Contig coverage](#8-contig-coverage)
-[9. Gene completeness (busco)](#9-gene-completeness)
+[1. Quality check (fastqc)](#1-Quality-check) 
+[2. Adapter trimming (trimmomatic)](#2-Adapter-trimming) 
+[3. *(optionally)* Read merging (bbmerge)](#3-Read-merging) 
+[4. Assembly (spades,abyss)](#4-Assembly) 
+[5. Assembly evaluation (quast)](#5-Assembly-evaluation) 
+[6. Contamination](#6-contamination) 
+[7. Mitochondrial genome assembly](#7-mitochondrial-genome-assembly) 
+[8. Contig coverage](#8-contig-coverage) 
+[9. Gene completeness (busco)](#9-gene-completeness) 
 
 
 ##### 1 Quality check
@@ -20,6 +20,7 @@ fastq=*.fastq
 list=$(ls $fastq)
 fastqc -o ./ ${list}
 ```
+Check [help](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/Help/3%20Analysis%20Modules/) for interpretation
 
 ##### 2 Adapter trimming
 
@@ -50,6 +51,30 @@ Location of adapter sequences: /prg/trimmomatic/0.36/adapters/
 
 Merging overlapping reads with bbmerge from [bbmap](https://github.com/BioInfoTools/BBMap)
 ```
-bbmerge.sh -t=8 -in1=reads_outR1P.fastq -in2=reads_outR1P.fastq -out=reads_merged.fastq -outu1=reads_R1um.fastq -outu2=reads_R2um.fastq
+bbmerge.sh -t=8 -in1=reads_outR1P.fastq -in2=reads_outR2P.fastq -out=reads_merged.fastq -outu1=reads_R1um.fastq -outu2=reads_R2um.fastq
+```
+
+##### 4 Assembly
+
+Assembly of PE reads using [SPAdes](https://github.com/ablab/spades) with memory limit of 100G and 8 threads (v3.9.1)
+```
+spades.py -k 21,33,55,77,99 --careful --pe1-1 reads_R1P.fastq --pe1-2 reads_R2P.fastq -o spades_v1 -t 8 -m 100
+```
+Assembly of PE and merged reads with SPAdes
+```
+spades.py -k 21,33,55,77,99 --careful --pe1-1 reads_R1um.fastq --pe1-2 reads_R2um.fastq --s1 reads_merged.fastq -o spades_v2 -t 8 -m 100
+```
+Assembly of PE reads with [ABySS](https://github.com/bcgsc/abyss) (v2.0.2) with min base quality 15 and 64 kmer
+```
+R1=reads_R1P.fastq
+R2=reads_R2P.fastq
+abyss-pe -C abyss_v1 name=tetropii k=64 q=15 in="$R1 $R2"
+```
+Assembly of PE and merged reads with ABySS
+```
+R1=reads_R1um.fastq
+R2=reads_R2um.fastq
+RS=reads_merged.fastq
+abyss-pe -C abyss_v2 name=tetropii k=64 q=15 in="$R1 $R2" se="$RS"
 ```
 
