@@ -85,12 +85,19 @@ quast.py -o quast_spades_broken -m 200 -l spades_v1,spades_v2,abyss_v1 ./spades_
 ```
 ##### 6 Contamination
 A simple approach to filter out contaminated contigs. In short, in case of assmbling fungi, contigs are blasted against fungal proteins from SwissProt and separately against bacterial and viral proteins. Contigs with higher overlap of bac/vir than fungal proteins are marked as potential contaminants.  
+Formatting database with taxonomic info [diamond] (v0.9.29)
+```
+ln -s /biodata/bio_sequences/proteins/uniprot/release_2020_04/uniprot_sprot.fasta uniprot_sprot_2020_04.fasta
+wget ftp://ftp.ncbi.nlm.nih.gov/pub/taxonomy/accession2taxid/prot.accession2taxid.gz
+wget ftp://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdmp.zip
+diamond makedb --in uniprot_sprot_2020_04.fasta --db uniprot_sprot_2020_04.fasta --taxonmap prot.accession2taxid.gz --taxonnodes taxdmp/nodes.dmp
+```
 Blasting contigs using [diamond](https://github.com/bbuchfink/diamond) (v0.9.29)
 ```
-dbdir=uniprot_sprot.fasta
-diamond blastx -p 10 -d $dbdir -q scaffolds.fasta -o blastx_sample_uniprot_fungi.tab -f 6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore salltitles staxids \
+db=uniprot_sprot_2020_04.fasta
+diamond blastx -p 10 -d $db -q scaffolds.fasta -o blastx_sample_uniprot_fungi.tab -f 6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore salltitles staxids \
 -e 0.001 --max-target-seqs 1000 --taxonlist 4751
-diamond blastx -p 10 -d $dbdir -q scaffolds.fasta -o blastx_sample_uniprot_bacvir.tab -f 6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore salltitles staxids \
+diamond blastx -p 10 -d $db -q scaffolds.fasta -o blastx_sample_uniprot_bacvir.tab -f 6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore salltitles staxids \
 -e 0.001 --max-target-seqs 1000 --taxonlist 2,2157,10239
 ```
 Find overlapping hits in each output
