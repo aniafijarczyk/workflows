@@ -1,9 +1,9 @@
 ### Gene annotation with Augustus
 
 
-[1. Modelling repeats (RepeatModeler)](#1-Modelling-repeats) 
-[2. Masking repeats (RepeatMasker)](#2-Masking-repeats) 
-[3. *Ab initio* gene annotation (Augustus)](#3-Ab-initio-gene-annotation) 
+[1. Modelling repeats (RepeatModeler)](#1-Modelling-repeats)  
+[2. Masking repeats (RepeatMasker)](#2-Masking-repeats)  
+[3. *Ab initio* gene annotation (Augustus)](#3-Ab-initio-gene-annotation)  
 
 
 #### 1 Modelling repeats
