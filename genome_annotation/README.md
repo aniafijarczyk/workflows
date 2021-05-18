@@ -7,6 +7,7 @@
 [4. Generating RNAseq hints](#4-RNAseq-hints)   
 [5. Generating protein hints](#5-Protein-hints)   
 [6. Gene annotation with hints](#6-Gene-annotation-with-hints)   
+[7. Joining gtf](#7-Joining-gtf)
 
 #### 1 Modelling repeats
 Using RepeatModeler v2.0.1
