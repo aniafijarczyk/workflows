@@ -4,9 +4,9 @@
 [1. Modelling repeats (RepeatModeler)](#1-Modelling-repeats)  
 [2. Masking repeats (RepeatMasker)](#2-Masking-repeats)  
 [3. *Ab initio* gene annotation (Augustus)](#3-Ab-initio-gene-annotation)  
-[4. Generating RNAseq hints](#4-RNAseq-hints)
-[5. Generating protein hints](#5-Protein-hints)
-[6. Gene annotation with hints](#6-Gene-annotation-with-hints)
+[4. Generating RNAseq hints](#4-RNAseq-hints)   
+[5. Generating protein hints](#5-Protein-hints)   
+[6. Gene annotation with hints](#6-Gene-annotation-with-hints)   
 
 #### 1 Modelling repeats
 Using RepeatModeler v2.0.1
