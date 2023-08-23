@@ -4,17 +4,17 @@
 [1. Quality check of fastq (fastqc, multiqc)](#1-quality-check-of-fastq)  
 [2. Adapter trimming (trimmomatic)](#2-adapter-trimming)  
 [3. Mapping (bwa mem)](#3-mapping)  
-[4. *(optional)* Checking mapping quality (goleft)](#4-checking-mapping-quality)  
-[5. *(optional)* Checking read depth per site (samtools, mosdepth)](#5-checking-read-depth)  
+[4. Checking mapping quality (goleft) *(optional)*](#4-checking-mapping-quality)  
+[5. Checking read depth (mosdepth, samtools) *(optional)*](#5-checking-read-depth)  
 [6. Marking duplicates (picard-tools)](#6-marking-duplicates)  
-[7. Checking read depth again (mosdepth)](#7-checking-read-depth-again)
+[7. Checking read depth again (mosdepth) *(optional)*](#7-checking-read-depth-again)  
 [8. SNP calling with samtools/bcftools](#8-snp-calling-with-bcftools)  
 [9. SNP calling with GATK Haplotype Caller](#9-snp-calling-with-gatk)  
 [10. SNP calling with Freebayes](#10-snp-calling-with-freebayes)  
 
 
 
-Variables
+### Variables
 ```
 fq1=ABC_1.fastq.gz
 fq2=ABC_2.fastq.gz
@@ -29,10 +29,9 @@ BWA_THREADS=8
 FLOWCELL_LANE=flowcell
 LANE_NUMBER=lane
 PLATFORM=ILLUMINA
-
 ```
 
-##### 1 Quality check of fastq
+### 1 Quality check of fastq
 
 Using [fastqc v0.12.1](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/)
 ```
@@ -43,7 +42,7 @@ Using [multiQC v1.14](https://multiqc.info/)
 multiqc -f -p -o output_${SAMPLE} ./output_${SAMPLE}
 ```
 
-##### 2 Adapter trimming
+### 2 Adapter trimming
 
 Using [trimmomatic v0.39](http://www.usadellab.org/cms/uploads/supplementary/Trimmomatic/TrimmomaticManual_V0.32.pdf)
 ```
@@ -59,19 +58,23 @@ parallel -j 10 java -jar -Xmx4g /prg/trimmomatic/0.39/trimmomatic-0.39.jar PE -p
 ILLUMINACLIP:${ADAPTERS}:2:30:10 LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:31 ::: $(ls -1 reads/*_1.fastq.gz | sed 's/_1.fastq.gz//' | cut -d'/' -f2)
 ```
 
-Location of adapter sequences: /prg/trimmomatic/0.36/adapters/
+Location of adapter sequences: /prg/trimmomatic/0.36/adapters/.
+
 Script check_encoding.sh can be used to retrieve fastq phred encoding if needed.
-After that goes another quality check.
+
+After that goes another quality check with fastqc to compare.
 
 
-##### 3 Mapping
+### 3 Mapping
 
 Mapping, sorting, realigning reads, indexing and calculating stats with [bwa mem v0.7.17](http://bio-bwa.sourceforge.net/bwa.shtml) and [samtools v1.17](http://www.htslib.org/doc/samtools.html)
 ```
 bwa index ${REF}
 samtools faidx ${REF}
 bwa mem -t $BWA_THREADS -R "@RG\tID:"${FLOWCELL_LANE}"."${LANE_NUMBER}"\tLB:"${SAMPLE}"\tPL:"${PLATFORM}"\tPU:"${FLOWCELL_LANE}"."${SAMPLE}"\tSM:"${SAMPLE}"" \
-$REF 02_trimmed/${SAMPLE}_R1P.fastq.gz 02_trimmed/${SAMPLE}_R2P.fastq.gz | samtools sort -@ $SAMTOOLS_THREADS -u - | samtools calmd -bAQr -@ $SAMTOOLS_THREADS - ${REF} > 04_bwa/${SAMPLE}_sorted.bam
+$REF 02_trimmed/${SAMPLE}_R1P.fastq.gz 02_trimmed/${SAMPLE}_R2P.fastq.gz | \
+samtools sort -@ $SAMTOOLS_THREADS -u - | \
+samtools calmd -bAQr -@ $SAMTOOLS_THREADS - ${REF} > 04_bwa/${SAMPLE}_sorted.bam
 samtools index 04_bwa/${SAMPLE}_sorted.bam
 samtools stats 04_bwa/${SAMPLE}_sorted.bam > 04_bwa/${SAMPLE}_sorted.stat
 ```
@@ -87,27 +90,26 @@ Where:
 Script check_flowcell.sh can be to retrieve flowcell lane and lane number from fastq header if needed.
 
 
-##### 4 Checking mapping quality
+### 4 Checking mapping quality (optional)
 
 Mapping coverage from bam index files with [goleft](https://github.com/brentp/goleft)
 ```
 goleft indexcov --directory stats_indexcov/ bams/*.bam
 ```
 
-##### 5 Checking read depth
+### 5 Checking read depth
 
 Average read depth per chromosome/contig using [mosdepth v0.0.3](https://github.com/brentp/mosdepth)
 ```
-mosdepth --fast-mode --by 1000 ./05_depth/${SAMPLE} ./04_bwa/${SAMPLE}_sorted.bam
+mosdepth --fast-mode ./05_depth/${SAMPLE} ./04_bwa/${SAMPLE}_sorted.bam
 ```
 
-Read depth per site with samtools
+Read depth per site with samtools (mosdepth is faster)
 ```
 samtools depth -a 04_bwa/${SAMPLE}_sorted.bam > 04_bwa/${SAMPLE}_sorted_depth.out
 ```
 
-##### 6 Marking duplicates
-
+### 6 Marking duplicates
 
 Marking duplicate reads with [picard v2.18.29](https://broadinstitute.github.io/picard/)
 ```
@@ -115,7 +117,7 @@ picard MarkDuplicates I=./04_bwa/${SAMPLE}_sorted.bam O=./06_rmdup/${SAMPLE}_rmd
 samtools index 06_rmdup/${SAMPLE}_rmdup.bam
 ```
 
-##### 7 Checking read depth again
+### 7 Checking read depth again
 
 Read depth per site and per 1000bp window with mosdepth
 ```
@@ -123,7 +125,7 @@ mosdepth --fast-mode --by 1000 ./07_depth/${SAMPLE} ./06_rmdup/${SAMPLE}_rmdup.b
 ```
 
 
-##### 8 SNP calling with bcftools
+### 8 SNP calling with bcftools
 
 Variant calling with [bcftools v1.17](https://samtools.github.io/bcftools/bcftools.html)
 ```
@@ -143,15 +145,15 @@ bcftools stats snp_bcftools.vcf.gz > snp_bcftools.stats
 
 Example filtering:  
 - removing:  
- -- variants with average DP across samples < 10  
- -- total sum of DP > 20000  
- -- variant quality < 20  
- -- read mapping quality < 40  
- -- ALT allele frequency across samples < 0.05  
- -- variants with allele count of 0  
+ - variants with average DP across samples < 10  
+ - total sum of DP > 20000  
+ - variant quality < 20  
+ - read mapping quality < 40  
+ - ALT allele frequency across samples < 0.05  
+ - variants with allele count of 0  
 - keeping:  
- -- biallelic variants  
- -- variants with at least 0 alternative allele  
+ - biallelic variants  
+ - variants with at least 1 alternative allele  
 
 ```
 bcftools filter -e "AVG(FORMAT/DP)<10 || INFO/DP>20000 || QUAL<20 || MQ<40 || (AF < 0.05) || (AC == 0)" -Ou snp_bcftools.vcf.gz | bcftools view -m2 -M2 -c1 -Oz -o snp_bcftools_FLT.vcf.gz -
@@ -193,9 +195,7 @@ Additional example filters with vcftools:
 vcftools --gzvcf snp_bcftools_FLT_snpEff.vcf.gz --remove-filtered-all --minDP 10 --minGQ 20 --max-missing 0.9 --recode --recode-INFO-all --out snp_bcftools_FLT_snpEff_FLT2
 ```
 
-
-
-##### 9 SNP calling with GATK
+### 9 SNP calling with GATK
 
 If bams generate error - readjust RG field following [this site](https://gatk.broadinstitute.org/hc/en-us/articles/360035890671-Read-groups)  
 
@@ -277,7 +277,7 @@ gatk SelectVariants -R ref.fasta \
     --select-type-to-exclude INDEL
 ```
 
-##### 9 SNP calling with Freebayes
+### 10 SNP calling with Freebayes
 
 Readjustment of RG fields in bam files using picard, if needed
 ```
