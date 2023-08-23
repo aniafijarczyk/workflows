@@ -2,70 +2,89 @@
 
 
 [1. Quality check of fastq (fastqc, multiqc)](#1-quality-check-of-fastq)  
-[2. Adapter trimming (trimmomatic, cutadapt)](#2-adapter-trimming)  
+[2. Adapter trimming (trimmomatic)](#2-adapter-trimming)  
 [3. Mapping (bwa mem)](#3-mapping)  
 [4. *(optional)* Checking mapping quality (goleft)](#4-checking-mapping-quality)  
-[5. *(optional)* Generating read depth per site (samtools)](#5-generating-read-depth-per-site)  
+[5. *(optional)* Checking read depth per site (samtools, mosdepth)](#5-checking-read-depth)  
 [6. Marking duplicates (picard-tools)](#6-marking-duplicates)  
-[7. SNP calling with samtools/bcftools](#7-snp-calling-with-bcftools)  
-[8. SNP calling with GATK Haplotype Caller](#8-snp-calling-with-gatk)  
-[9. SNP calling with Freebayes](#9-snp-calling-with-freebayes)  
+[7. Checking read depth again (mosdepth)](#7-checking-read-depth-again)
+[8. SNP calling with samtools/bcftools](#8-snp-calling-with-bcftools)  
+[9. SNP calling with GATK Haplotype Caller](#9-snp-calling-with-gatk)  
+[10. SNP calling with Freebayes](#10-snp-calling-with-freebayes)  
 
 
+
+Variables
+```
+fq1=ABC_1.fastq.gz
+fq2=ABC_2.fastq.gz
+SAMPLE=ABC
+FASTQ_THREADS=8
+TRIMMOMATIC_THREADS=8
+PHRED=33
+ADAPTERS=trimmomatic_adapters_PE.fa
+MINLEN=31
+REF=reference.fasta
+BWA_THREADS=8
+FLOWCELL_LANE=flowcell
+LANE_NUMBER=lane
+PLATFORM=ILLUMINA
+
+```
 
 ##### 1 Quality check of fastq
 
-Using (fastqc/0.11.8)
+Using [fastqc v0.12.1](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/)
 ```
-fastq=../../../DATA/rnaseq/*.fastq
-list=$(ls $fastq)
-fastqc -o ./ ${list}
+fastqc $fq1 -o ./output_${SAMPLE} -t ${FASTQC_THREADS}
 ```
-[MultiQC](https://multiqc.info/)
+Using [multiQC v1.14](https://multiqc.info/)
+```
+multiqc -f -p -o output_${SAMPLE} ./output_${SAMPLE}
+```
 
 ##### 2 Adapter trimming
 
-Using [trimmomatic](http://www.usadellab.org/cms/uploads/supplementary/Trimmomatic/TrimmomaticManual_V0.32.pdf) in a loop
+Using [trimmomatic v0.39](http://www.usadellab.org/cms/uploads/supplementary/Trimmomatic/TrimmomaticManual_V0.32.pdf)
 ```
-for sample in AT146 Yu16
-  do
-  left=reads/${sample}*_R1.fastq.gz
-  right=reads/${sample}*_R2.fastq.gz
-  java -jar -Xmx4g /prg/trimmomatic/0.36/trimmomatic-0.36.jar PE -phred33 \
-  reads/${sample}_R1.fastq.gz reads/${sample}_R2.fastq.gz \
-  trimmed/${sample}_outR1P.fastq trimmed/${sample}_outR1U.fastq trimmed/${sample}_outR2P.fastq trimmed/${sample}_outR2U.fastq \
-  ILLUMINACLIP:TruSeq3-PE-adapters.fa:6:20:10 MINLEN:21
-  done
+trimmomatic PE -threads ${TRIMMOMATIC_THREADS} -phred${PHRED} $fq1 $fq2 \
+02_trimmed/${SAMPLE}_R1P.fastq.gz 02_trimmed/${SAMPLE}_R1U.fastq.gz 02_trimmed/${SAMPLE}_R2P.fastq.gz 02_trimmed/${SAMPLE}_R2U.fastq.gz \
+ILLUMINACLIP:${ADAPTERS}:2:30:10 LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:${MINLEN}
 ```
 
-or with parallel
+trimmomatic with parallel
 ```
-parallel -j 10 java -jar -Xmx4g /prg/trimmomatic/0.33/trimmomatic-0.33.jar PE -phred33 reads/{}_R1.fastq.gz reads/{}_R2.fastq.gz \
-trimmed/{}_outR1P.fastq trimmed/{}_outR1U.fastq trimmed/{}_outR2P.fastq trimmed/{}_outR2U.fastq \
-ILLUMINACLIP:TruSeq3-PE-adapters.fa:6:20:10 MINLEN:21 ::: $(ls -1 reads/*_R1.fastq.gz | sed 's/_R1.fastq.gz//' | cut -d'/' -f2)
+parallel -j 10 java -jar -Xmx4g /prg/trimmomatic/0.39/trimmomatic-0.39.jar PE -phred33 reads/{}_R1.fastq.gz reads/{}_R2.fastq.gz \
+02_trimmed/{}_outR1P.fastq.gz 02_trimmed/{}_outR1U.fastq.gz 02_trimmed/{}_outR2P.fastq.gz 02_trimmed/{}_outR2U.fastq.gz \
+ILLUMINACLIP:${ADAPTERS}:2:30:10 LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:31 ::: $(ls -1 reads/*_1.fastq.gz | sed 's/_1.fastq.gz//' | cut -d'/' -f2)
 ```
 
 Location of adapter sequences: /prg/trimmomatic/0.36/adapters/
+Script check_encoding.sh can be used to retrieve fastq phred encoding if needed.
+After that goes another quality check.
 
 
 ##### 3 Mapping
 
-Mapping & sorting, indexing and calculating stats with 2 threads with [bwa mem](http://bio-bwa.sourceforge.net/bwa.shtml) (bwa/0.7.17)
+Mapping, sorting, realigning reads, indexing and calculating stats with [bwa mem v0.7.17](http://bio-bwa.sourceforge.net/bwa.shtml) and [samtools v1.17](http://www.htslib.org/doc/samtools.html)
 ```
-bwa index reference.fasta
-samtools faidx reference.fasta
-
-for sample in AT146 Yu16
-  do
-  if [ ! -f bams/"${sample}_SpA_sorted.bam" ]
-  then
-    bwa mem -t 2 reference.fasta ${sample}_outR1P.fastq ${sample}_outR2P.fastq | samtools sort -@ 2 -o bams/${sample}_SpA_sorted.bam -
-    samtools index bams/${sample}_SpA_sorted.bam
-    samtools stats bams/${sample}_SpA_sorted.bam > bams/${sample}_SpA_sorted_stat
-  fi
-  done
-
+bwa index ${REF}
+samtools faidx ${REF}
+bwa mem -t $BWA_THREADS -R "@RG\tID:"${FLOWCELL_LANE}"."${LANE_NUMBER}"\tLB:"${SAMPLE}"\tPL:"${PLATFORM}"\tPU:"${FLOWCELL_LANE}"."${SAMPLE}"\tSM:"${SAMPLE}"" \
+$REF 02_trimmed/${SAMPLE}_R1P.fastq.gz 02_trimmed/${SAMPLE}_R2P.fastq.gz | samtools sort -@ $SAMTOOLS_THREADS -u - | samtools calmd -bAQr -@ $SAMTOOLS_THREADS - ${REF} > 04_bwa/${SAMPLE}_sorted.bam
+samtools index 04_bwa/${SAMPLE}_sorted.bam
+samtools stats 04_bwa/${SAMPLE}_sorted.bam > 04_bwa/${SAMPLE}_sorted.stat
 ```
+RG field is readjusted following [this information](https://gatk.broadinstitute.org/hc/en-us/articles/360035890671-Read-groups)
+Where:
+```
+# ID:FLOWCELL_LANE.LANE_NUMBER
+# PL:ILLUMINA
+# SM:SAMPLE
+# LB:SAMPLE
+# PU:FLOWCELL_LANE.SAMPLE
+```
+Script check_flowcell.sh can be to retrieve flowcell lane and lane number from fastq header if needed.
 
 
 ##### 4 Checking mapping quality
@@ -75,116 +94,111 @@ Mapping coverage from bam index files with [goleft](https://github.com/brentp/go
 goleft indexcov --directory stats_indexcov/ bams/*.bam
 ```
 
-##### 5 Generating read depth per site
+##### 5 Checking read depth
 
+Average read depth per chromosome/contig using [mosdepth v0.0.3](https://github.com/brentp/mosdepth)
 ```
-samtools depth -a bams/${sample}_SpA_sorted.bam > bams/${sample}_SpA_sorted_depth.out
+mosdepth --fast-mode --by 1000 ./05_depth/${SAMPLE} ./04_bwa/${SAMPLE}_sorted.bam
+```
+
+Read depth per site with samtools
+```
+samtools depth -a 04_bwa/${SAMPLE}_sorted.bam > 04_bwa/${SAMPLE}_sorted_depth.out
 ```
 
 ##### 6 Marking duplicates
 
 
-Marking duplicate reads with [picard](https://broadinstitute.github.io/picard/) (picard-2.18)
+Marking duplicate reads with [picard v2.18.29](https://broadinstitute.github.io/picard/)
 ```
-java -jar ${dir}/picard/build/libs/picard.jar MarkDuplicates I=${sample}_SpA_sorted.bam O=${sample}_SpA_rmdup.bam M=${sample}_SpA_picard.metrics REMOVE_DUPLICATES=true
-```
-
-Creating file with commands
-```
-rm queue.txt
-touch queue.txt
-for sample in bams/*.bam
-  do
-  nameis=$(echo $sample | sed 's/_sorted.bam//' | cut -d'/' -f 2)
-  echo $nameis
-  echo 'java -jar '${dir}'/picard/build/libs/picard.jar MarkDuplicates I=bams/'${nameis}'_sorted.bam O=bams/'${nameis}'_rmdup.bam M=bams/'${nameis}'_picard.metrics REMOVE_DUPLICATES=true' >> queue.txt
-  done
+picard MarkDuplicates I=./04_bwa/${SAMPLE}_sorted.bam O=./06_rmdup/${SAMPLE}_rmdup.bam M=./06_rmdup/${SAMPLE}_picard.metrics REMOVE_DUPLICATES=true
+samtools index 06_rmdup/${SAMPLE}_rmdup.bam
 ```
 
-##### 7 SNP calling with bcftools
+##### 7 Checking read depth again
 
-Realigning reads around indels with [samtools calmd](http://www.htslib.org/doc/samtools-calmd.html)
+Read depth per site and per 1000bp window with mosdepth
 ```
-for bam in bams/*_rmdup.bams
-  do
-  nameis=$(echo $bam | sed 's/.bam//g')
-  echo $nameis
-  samtools calmd -bAr -@2 ${bam} reference.fasta > ${nameis}_calmd.bam
-  done
+mosdepth --fast-mode --by 1000 ./07_depth/${SAMPLE} ./06_rmdup/${SAMPLE}_rmdup.bam
 ```
 
-SNP calling with [bcftools mpileup](http://samtools.github.io/bcftools/bcftools.html#mpileup) and [bcftools call](http://samtools.github.io/bcftools/bcftools.html#call) (bcftools v1.9)
-[I think bcftools mpileup doesn't work with bcftools call -m (using -c instead)]
+
+##### 8 SNP calling with bcftools
+
+Variant calling with [bcftools v1.17](https://samtools.github.io/bcftools/bcftools.html)
 ```
-ls bams/*_calmd.bam > bam_list
-bcftools mpileup -C50 -f reference.fasta -q4 -a FORMAT/AD,FORMAT/ADR,FORMAT/ADF,FORMAT/DP -Ou -b bams_list | \
-bcftools call -cv -f gq -Oz -o snp_bcftools.vcf.gz -
+BAMS=bams_list.txt
+bcftools mpileup -C50 -f ${REF} -min-MQ 4 -min-BQ 13 --skip-any-set 1796 -a FORMAT/AD,FORMAT/ADR,FORMAT/ADF,FORMAT/DP -Ou -b ${BAMS} | \
+bcftools call -mv -f gq -Oz -o snp_bcftools.vcf.gz -
 tabix -p vcf snp_bcftools.vcf.gz
+
+# --skip-any-set: Skip reads with any of the FLAG bits set;
+# 1796: read unmapped (0x4), not primary alignment (0x100), read fails platform/vendor quality checks (0x200), read is PCR or optical duplicate (0x400)
 ```
 
-Annotation of poor SNPs with [vcf-annotate](https://manpages.debian.org/testing/vcftools/vcf-annotate.1.en.html)
-
+Checking the stats
 ```
-zcat snp_bcftools.vcf.gz | grep -v "^#" | awk '{print $1"\t"$2"\t"$2"\tsnp_"NR}' > snp_bcftools_annotations
-bgzip snp_bcftools_annotations
-tabix -s 1 -b 2 -e 3 snp_bcftools_annotations.gz
-```
-```
-export PERL5LIB=/home/anna/github/vcftools/src/perl
-bcftools view snp_bcftools.vcf.gz | vcf-annotate -f +/d=10/D=10000/q=20/Q=10/-W/w=10 \
---fill-HWE --fill-type -n -a snp_bcftools_annotations.gz -c CHROM,FROM,TO,INFO/SNP_ID \
--d key=INFO,ID=SNP_ID,Number=1,Type=Integer,Description='SnpList' | bgzip -c > snp_bcftools_annotated.vcf.gz
-```
-```
-StrandBias FLOAT Min P-value for strand bias (given PV4) [0.0001]
-BaseQualBias FLOAT Min P-value for baseQ bias [1e-100]
-MapQualBias FLOAT Min P-value for mapQ bias [0]
-EndDistBias FLOAT Min P-value for end distance bias [0.0001]
-a = MinAB INT Minimum number of alternate bases [2]
-c = SnpCluster INT1,INT2 Filters clusters of 'INT1' or more SNPs within a run of 'INT2' bases []
-D = MaxDP INT Maximum read depth [10000000]
-d = MinDP INT Minimum read depth [2]
-q = MinMQ INT Minimum RMS mapping quality for SNPs [10]
-Q = Qual INT Minimum value of the QUAL field [10]
-W = GapWin INT Window size for filtering adjacent gaps [10]
-w = SnpGap INT SNP within INT bp around a gap to be filtered [10]
-```
-Filtering with [bcftools view](http://samtools.github.io/bcftools/bcftools.html#view) - only SNPs, with coverage min 10 per sample, and variants which pass above filters
-```
-bcftools view -i 'TYPE=="snp" & (DP4[0]+DP4[1]+DP4[2]+DP4[3])>=10 & FILTER=="PASS"' \
-snp_bcftools_annotated.vcf.gz -Oz -o snp_bcftools.f.vcf.gz
-```
-Filtering with [vcftools](https://vcftools.github.io/man_latest.html) - same as above + removing low quality genotypes (GQ<20) and SNPs with >10% missing data with
-```
-vcftools --gzvcf snp_bcftools_annotated.vcf.gz --remove-indels --remove-filtered-all --minDP 10 --minGQ 20 --max-missing 0.9 --recode --recode-INFO-all --out snp_bcftools.f2
+bcftools stats snp_bcftools.vcf.gz > snp_bcftools.stats
 ```
 
-##### 8 SNP calling with GATK
+Example filtering:  
+- removing:  
+ -- variants with average DP across samples < 10  
+ -- total sum of DP > 20000  
+ -- variant quality < 20  
+ -- read mapping quality < 40  
+ -- ALT allele frequency across samples < 0.05  
+ -- variants with allele count of 0  
+- keeping:  
+ -- biallelic variants  
+ -- variants with at least 0 alternative allele  
 
-If bams generate error - readjust RG field following [this site](https://gatk.broadinstitute.org/hc/en-us/articles/360035890671-Read-groups)   
-Here adjusting RG fields at the mapping stage (can be also done with picard - shown below under freebayes)
 ```
-bwa mem -t 10 -R "@RG\tID:HKTFYCCXY.3\tLB:G4_1\tPL:ILLUMINA\tPU:HKTFYCCXY.3.sampleID\tSM:sampleID" ref.fasta reads/${sample}_R1P.fastq.gz reads/${sample}_R2P.fastq.gz | samtools sort -@ 10 -o bams2/${sample}_sorted.bam -
+bcftools filter -e "AVG(FORMAT/DP)<10 || INFO/DP>20000 || QUAL<20 || MQ<40 || (AF < 0.05) || (AC == 0)" -Ou snp_bcftools.vcf.gz | bcftools view -m2 -M2 -c1 -Oz -o snp_bcftools_FLT.vcf.gz -
+bcftools stats snp_bcftools_FLT.vcf.gz > snp_bcftools_FLT.stats
+tabix -f -p vcf snp_bcftools_FLT.vcf.gz
 ```
+
+Variant annotation with SnpEff
+
 ```
-where:
-# ID:flowcell.lane
-# PL:ILLUMINA
-# SM:sample
-# LB:sample
-# PU:flowcell.lane.sample
+snpEff_DIR=/home/software/snpEff
+TMP=../DATA_temp
+CONFIG=/home/software/snpEff/snpEff.config
+# SnpEff
+snpEff -c $CONFIG SC5314 snp_bcftools_FLT.vcf.gz > snp_bcftools_FLT_snpEff.vcf
+bgzip -f snp_bcftools_FLT_snpEff.vcf
+tabix -f -p vcf snp_bcftools_FLT_snpEff.vcf.gz
 ```
-Getting RG info from each fastq file (may need to be adjusted to sequencing tech output): filename, sampleID, flow cell, flow cell lane, sth else
+
+Splitting SNPs and INDELs
 ```
-fastqs=reads/*_R1.fastq.gz
-for fastq in $fastqs
-  do
-  nameis=$(echo $fastq | cut -d"/" -f2)
-  core=$(echo $nameis | sed 's/_R1.fastq.gz//g')
-  ids=$(echo $nameis | sed 's/_R1.fastq.gz//g' | cut -d"." -f1)
-  zcat reads/${nameis} | head -n1 | awk -F":" -v name="${core}" -v var="${ids}" '{print name,var,$3,$4,$10}'
-  done
+bcftools view -i '%TYPE="snp"' -Oz -o snp_bcftools_FLT_snpEff_SNP.vcf.gz snp_bcftools_FLT_snpEff.vcf.gz
+bcftools view -i '%TYPE="indel"' -Oz -o snp_bcftools_FLT_snpEff_INDEL.vcf.gz snp_bcftools_FLT_snpEff.vcf.gz
 ```
+
+Checking missingness of the data with [vcftools ](https://vcftools.github.io/man_latest.html)
+```
+VCF=snp_bcftools_FLT_snpEff.vcf.gz
+vcftools --gzvcf $VCF --missing-indv --out snp_bcftools_FLT_snpEff
+vcftools --gzvcf $VCF --missing-site --out snp_bcftools_FLT_snpEff
+```
+
+
+Additional example filters with vcftools:  
+- min DP per sample = 10  
+- min genotype quality = 20  
+- max missing genotypes = 10%  
+```
+vcftools --gzvcf snp_bcftools_FLT_snpEff.vcf.gz --remove-filtered-all --minDP 10 --minGQ 20 --max-missing 0.9 --recode --recode-INFO-all --out snp_bcftools_FLT_snpEff_FLT2
+```
+
+
+
+##### 9 SNP calling with GATK
+
+If bams generate error - readjust RG field following [this site](https://gatk.broadinstitute.org/hc/en-us/articles/360035890671-Read-groups)  
+
 
 Indexing reference
 ```
