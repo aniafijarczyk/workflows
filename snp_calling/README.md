@@ -78,8 +78,7 @@ samtools calmd -bAQr -@ $SAMTOOLS_THREADS - ${REF} > 04_bwa/${SAMPLE}_sorted.bam
 samtools index 04_bwa/${SAMPLE}_sorted.bam
 samtools stats 04_bwa/${SAMPLE}_sorted.bam > 04_bwa/${SAMPLE}_sorted.stat
 ```
-RG field is readjusted following [this information](https://gatk.broadinstitute.org/hc/en-us/articles/360035890671-Read-groups)
-Where:
+RG field is readjusted following [this information](https://gatk.broadinstitute.org/hc/en-us/articles/360035890671-Read-groups), where:
 ```
 # ID:FLOWCELL_LANE.LANE_NUMBER
 # PL:ILLUMINA
@@ -145,15 +144,15 @@ bcftools stats snp_bcftools.vcf.gz > snp_bcftools.stats
 
 Example filtering:  
 - removing:  
- - variants with average DP across samples < 10  
- - total sum of DP > 20000  
- - variant quality < 20  
- - read mapping quality < 40  
- - ALT allele frequency across samples < 0.05  
- - variants with allele count of 0  
+  - variants with average DP across samples < 10  
+  - total sum of DP > 20000  
+  - variant quality < 20  
+  - read mapping quality < 40  
+  - ALT allele frequency across samples < 0.05  
+  - variants with allele count of 0  
 - keeping:  
- - biallelic variants  
- - variants with at least 1 alternative allele  
+  - biallelic variants  
+  - variants with at least 1 alternative allele  
 
 ```
 bcftools filter -e "AVG(FORMAT/DP)<10 || INFO/DP>20000 || QUAL<20 || MQ<40 || (AF < 0.05) || (AC == 0)" -Ou snp_bcftools.vcf.gz | bcftools view -m2 -M2 -c1 -Oz -o snp_bcftools_FLT.vcf.gz -
@@ -161,7 +160,7 @@ bcftools stats snp_bcftools_FLT.vcf.gz > snp_bcftools_FLT.stats
 tabix -f -p vcf snp_bcftools_FLT.vcf.gz
 ```
 
-Variant annotation with SnpEff
+Variant annotation with [SnpEff v5.0](https://pcingola.github.io/SnpEff/se_buildingdb/)
 
 ```
 snpEff_DIR=/home/software/snpEff
