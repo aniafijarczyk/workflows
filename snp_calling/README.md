@@ -67,11 +67,11 @@ After that goes another quality check with fastqc to compare.
 
 ### 3 Mapping
 
-Mapping, sorting, realigning reads, indexing and calculating stats with [bwa mem v0.7.17](http://bio-bwa.sourceforge.net/bwa.shtml) and [samtools v1.17](http://www.htslib.org/doc/samtools.html)
+Mapping, sorting, realigning reads, indexing and calculating stats with [bwa-mem2 mem v2.2.1](https://github.com/bwa-mem2/bwa-mem2) and [samtools v1.17](http://www.htslib.org/doc/samtools.html)
 ```
-bwa index ${REF}
+bwa-mem2 index ${REF}
 samtools faidx ${REF}
-bwa mem -t $BWA_THREADS -R "@RG\tID:"${FLOWCELL_LANE}"."${LANE_NUMBER}"\tLB:"${SAMPLE}"\tPL:"${PLATFORM}"\tPU:"${FLOWCELL_LANE}"."${SAMPLE}"\tSM:"${SAMPLE}"" \
+bwa-mem2 mem -t $BWA_THREADS -R "@RG\tID:"${FLOWCELL_LANE}"."${LANE_NUMBER}"\tLB:"${SAMPLE}"\tPL:"${PLATFORM}"\tPU:"${FLOWCELL_LANE}"."${SAMPLE}"\tSM:"${SAMPLE}"" \
 $REF 02_trimmed/${SAMPLE}_R1P.fastq.gz 02_trimmed/${SAMPLE}_R2P.fastq.gz | \
 samtools sort -@ $SAMTOOLS_THREADS -u - | \
 samtools calmd -bAQr -@ $SAMTOOLS_THREADS - ${REF} > 04_bwa/${SAMPLE}_sorted.bam
