@@ -129,7 +129,7 @@ mosdepth --fast-mode --by 1000 ./07_depth/${SAMPLE} ./06_rmdup/${SAMPLE}_rmdup.b
 Variant calling with [bcftools v1.17](https://samtools.github.io/bcftools/bcftools.html)
 ```
 BAMS=bams_list.txt
-bcftools mpileup -C50 -f ${REF} -min-MQ 4 -min-BQ 13 --skip-any-set 1796 -a FORMAT/AD,FORMAT/ADR,FORMAT/ADF,FORMAT/DP -Ou -b ${BAMS} | \
+bcftools mpileup -C50 -f ${REF} -q 4 -Q 13 --skip-any-set 1796 -a FORMAT/AD,FORMAT/ADR,FORMAT/ADF,FORMAT/DP -Ou -b ${BAMS} | \
 bcftools call -mv -f gq -Oz -o snp_bcftools.vcf.gz -
 tabix -p vcf snp_bcftools.vcf.gz
 
