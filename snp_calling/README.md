@@ -223,7 +223,6 @@ gatk CombineGVCFs -R ref.fasta \
     -V gatk/samp1.g.vcf.gz -V gatk/samp2.g.vcf.gz -V gatk/samp3.g.vcf.gz \
     -O combined/combined.g.vcf \
     -G StandardAnnotation
-done
 ```
 Genotype GCVF
 ```
